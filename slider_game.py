@@ -1,7 +1,6 @@
 import random
-import keyboard
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFileDialog, QLabel
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QFileDialog, QLabel, QCheckBox
 from PyQt5.QtCore import QTimer, Qt
 import os
 import sys
@@ -9,6 +8,8 @@ import sys
 class UI(QWidget):
     def __init__(self, file_path=None):
         super().__init__()
+
+        self.invert = False
 
         self.setWindowTitle('Slider Game')
         self.resize(400, 300)
@@ -19,15 +20,21 @@ class UI(QWidget):
         self.file_button = QPushButton('Select Image')
         self.file_button.clicked.connect(self.open_file_explorer)
 
-        self.full_image_label = QLabel('')
+        self.full_image_label = QLabel('', self)
         self.full_image_label.setScaledContents(False)
 
         self.timer_label = QLabel('0.0')
 
+        self.invert_checkbox = QCheckBox('Invert Controls')
+        self.invert_checkbox.stateChanged.connect(self.invert_controls)
+
         self.layout = QVBoxLayout()
         self.layout.addWidget(quit_button)
-        
-        self.layout.addWidget(self.file_button)
+
+        self.file_box = QHBoxLayout()
+        self.file_box.addWidget(self.file_button)
+        self.file_box.addWidget(self.invert_checkbox)
+        self.layout.addLayout(self.file_box)
 
         self.image_clock = QHBoxLayout()
         self.image_clock.addWidget(self.full_image_label)
@@ -37,9 +44,71 @@ class UI(QWidget):
         self.layout.addLayout(self.image_clock)
         self.setLayout(self.layout)
 
+        self.setFocusPolicy(Qt.StrongFocus)
+
         if file_path:
             self.load_image(file_path)
             self.add_start(file_path)
+
+    def keyPressEvent(self, event):
+        if not getattr(self, 'running', False):
+            return
+        
+        o_index = self.game_list.index(0)
+
+        if event.key() == Qt.Key_Left or event.key() == Qt.Key_A:
+            if self.invert == True:
+                if o_index == 2 or o_index == 5 or o_index == 8:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index + 1] = self.game_list[o_index + 1], self.game_list[o_index]
+            else:
+                if o_index == 0 or o_index == 3 or o_index == 6:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index - 1] = self.game_list[o_index - 1], self.game_list[o_index]
+        elif event.key() == Qt.Key_Up or event.key() == Qt.Key_W:
+            if self.invert == True:
+                if o_index == 6 or o_index == 7 or o_index == 8:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index + 3] = self.game_list[o_index + 3], self.game_list[o_index]
+            else:
+                if o_index == 0 or o_index == 1 or o_index == 2:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index - 3] = self.game_list[o_index - 3], self.game_list[o_index]
+        elif event.key() == Qt.Key_Down or event.key() == Qt.Key_S:
+            if self.invert == True:
+                if o_index == 0 or o_index == 1 or o_index == 2:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index - 3] = self.game_list[o_index - 3], self.game_list[o_index]
+            else:
+                if o_index == 6 or o_index == 7 or o_index == 8:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index + 3] = self.game_list[o_index + 3], self.game_list[o_index]
+        elif event.key() == Qt.Key_Right or event.key() == Qt.Key_D:
+            if self.invert == True:
+                if o_index == 0 or o_index == 3 or o_index == 6:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index - 1] = self.game_list[o_index - 1], self.game_list[o_index]
+            else:
+                if o_index == 2 or o_index == 5 or o_index == 8:
+                    return
+                else:
+                    self.game_list[o_index], self.game_list[o_index + 1] = self.game_list[o_index + 1], self.game_list[o_index]
+
+        self.reload_tiles()
+        self.check_over()
+
+    def invert_controls(self, state):
+        if state == Qt.Checked:
+            self.invert = True
+        else:
+            self.invert = False
 
     def open_file_explorer(self):
         file_path, _ = QFileDialog.getOpenFileName(self, 'Select File')
@@ -73,16 +142,44 @@ class UI(QWidget):
             seconds = self.counter / 10
             self.timer_label.setText(f"{seconds:.1f}")
 
+    def add_restart(self):
+        if self.running:
+            self.start_button.hide()
+            self.restart_button = QPushButton('Restart')
+            self.restart_button.clicked.connect(self.restart_game)
+            self.layout.addWidget(self.restart_button)
+
+    def restart_game(self):
+        self.restart_button.hide()
+        self.start_button.show()
+        self.timer.stop()
+        self.timer_label.setText('0.0')
+        
+        self.tile0_label.hide()
+        self.tile1_label.hide()
+        self.tile2_label.hide()
+        self.tile3_label.hide()
+        self.tile4_label.hide()
+        self.tile5_label.hide()
+        self.tile6_label.hide()
+        self.tile7_label.hide()
+        self.tile8_label.hide()
+
+        self.image_clock.insertWidget(0, self.full_image_label)
+        self.full_image_label.show()
+
     def start_game(self):
         self.counter = 0
         self.running = True
+
+        self.clear_tiles()
 
         self.timer = QTimer()
         self.timer.setInterval(100)
         self.timer.timeout.connect(self.update_time)
         self.timer.start()
 
-        self.start_button.setText('Restart')
+        self.add_restart()
 
         self.split_image(self.file_path, self.output_dir)
 
@@ -91,12 +188,11 @@ class UI(QWidget):
         self.image_list = [os.path.join(self.output_dir, f'tile_{i}.png') for i in range(9)]
         self.reload_tiles()
 
-        self.clear_tiles()
         self.load_tiles(self.image_list, self.game_list)
 
-    def load_tiles(self, image_list, game_list):
-        self.full_image_label.hide()
+        self.image_clock.addWidget(self.timer_label)
 
+    def load_tiles(self, image_list, game_list):
         split_image_v = QVBoxLayout()
 
         split_image_h1 = QHBoxLayout()
@@ -194,34 +290,16 @@ class UI(QWidget):
                 
                 count += 1
 
-        image_list = [f'tile_0.png', f'tile_1.png', f'tile_2.png', f'tile_3.png', f'tile_4.png', f'tile_5.png', f'tile_6.png', f'tile_7.png', f'tile_8.png']
+    def check_over(self):
+        self.check_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 
-def find_key(o_index):
-    key = keyboard.read_key()
-    while keyboard.is_pressed(key):
-        pass
-    if key == 'left' or key == 'a':
-        game_list[o_index], game_list[o_index - 1] = game_list[o_index - 1], game_list[o_index]
-    elif key == 'up' or key == 'w':
-        game_list[o_index], game_list[o_index - 3] = game_list[o_index - 3], game_list[o_index]
-    elif key == 'down' or key == 's':
-        game_list[o_index], game_list[o_index + 3] = game_list[o_index + 3], game_list[o_index]
-    elif key == 'right' or key == 'd':
-        game_list[o_index], game_list[o_index + 1] = game_list[o_index + 1], game_list[o_index]
-
-
-def check_over(game_list):
-    check_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-
-    if check_list == game_list:
-        run = False
-    else:
-        pass
+        if self.check_list == self.game_list:
+            self.running = False
+            self.timer.stop()
+        else:
+            pass
 
 if __name__ == '__main__':
-    game_list = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    random.shuffle(game_list)
-
     ui = QApplication(sys.argv)
     window = UI()
     window.show()
